@@ -102,15 +102,18 @@ user_problem_statement: "Build MoodScript Phase 1: Emergent Google login + auth-
 backend:
   - task: "Emergent Google auth exchange + /auth/me + /auth/logout"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented /api/auth/exchange (calls Emergent session-data), /api/auth/me (Bearer), /api/auth/logout. Stores users and user_sessions in MongoDB excluding _id; timezone-aware expiry. Added httpx dependency."
+      - working: true
+        agent: "testing"
+        comment: "✅ ALL BACKEND AUTH TESTS PASSED (5/5): 1) GET /api/ returns MoodScript API message ✅ 2) MongoDB seeding creates user & session successfully ✅ 3) GET /api/auth/me with valid Bearer token returns user_id/email/name ✅ 4) POST /api/auth/logout with Bearer token returns {ok:true} ✅ 5) GET /api/auth/me after logout correctly returns 401 ✅ 6) POST /api/auth/exchange with fake session_id correctly returns 401 ✅. All auth endpoints working correctly with proper authentication flow, session management, and error handling."
 
 frontend:
   - task: "Auth-gated Expo Router shell (login + tabs + token storage)"
