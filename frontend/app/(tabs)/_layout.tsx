@@ -3,15 +3,13 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { pastel } from "../../src/theme/colors";
 
-const HomeIcon = ({ color, size }: { color: string; size: number }) => (
-  <Ionicons name="heart" size={size} color={color} />
-);
+const HomeIcon = ({ color, size }) => <Ionicons name="heart" size={size} color={color} />;
 
-const CreateIcon = ({ color, size }: { color: string; size: number }) => (
+const CreateIcon = ({ color, size }) => (
   <Ionicons name="sparkles" size={size} color={color} />
 );
 
-const ProfileIcon = ({ color, size }: { color: string; size: number }) => (
+const ProfileIcon = ({ color, size }) => (
   <Ionicons name="person" size={size} color={color} />
 );
 

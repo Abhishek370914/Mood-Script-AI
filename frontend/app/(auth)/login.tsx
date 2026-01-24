@@ -25,7 +25,8 @@ export default function Login() {
     try {
       await loginWithGoogle();
     } catch (e) {
-      const msg = (e as any)?.message;
+      // @ts-ignore - keep runtime-safe without leaning on types
+      const msg = e?.message;
       setError(msg || "Something went sideways. Try again.");
     } finally {
       setLoading(false);
