@@ -24,8 +24,9 @@ export default function Login() {
     setLoading(true);
     try {
       await loginWithGoogle();
-    } catch (e: any) {
-      setError(e?.message || "Something went sideways. Try again.");
+    } catch (e) {
+      const msg = (e as any)?.message;
+      setError(msg || "Something went sideways. Try again.");
     } finally {
       setLoading(false);
     }
