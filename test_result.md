@@ -72,32 +72,72 @@
 # 2. Incorporate User Feedback:
 #    - When a user provides feedback that something is or isn't working, add this information to the relevant task's status_history
 #    - Update the working status based on user feedback
-#    - If a user reports an issue with a task that was marked as working, increment the stuck_count
-#    - Whenever user reports issue in the app, if we have testing agent and task_result.md file so find the appropriate task for that and append in status_history of that task to contain the user concern and problem as well 
+#    - If a user reports that a task was marked as working but isn't, increment the stuck_count
 #
 # 3. Track Stuck Tasks:
-#    - Monitor which tasks have high stuck_count values or where you are fixing same issue again and again, analyze that when you read task_result.md
+#    - Monitor which tasks have high stuck_count values or where you are fixing same issue again and again
 #    - For persistent issues, use websearch tool to find solutions
-#    - Pay special attention to tasks in the stuck_tasks list
-#    - When you fix an issue with a stuck task, don't reset the stuck_count until the testing agent confirms it's working
 #
 # 4. Provide Context to Testing Agent:
 #    - When calling the testing agent, provide clear instructions about:
 #      - Which tasks need testing (reference the test_plan)
-#      - Any authentication details or configuration needed
-#      - Specific test scenarios to focus on
-#      - Any known issues or edge cases to verify
+#      - Any auth details or configuration needed
+#      - Specific test scenarios
 #
 # 5. Call the testing agent with specific instructions referring to test_result.md
 #
-# IMPORTANT: Main agent must ALWAYS update test_result.md BEFORE calling the testing agent, as it relies on this file to understand what to test next.
+# IMPORTANT: Main agent must ALWAYS update test_result.md BEFORE calling the testing agent.
 
 #====================================================================================================
 # END - Testing Protocol - DO NOT EDIT OR REMOVE THIS SECTION
 #====================================================================================================
 
 
-
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Build MoodScript Phase 1: Emergent Google login + auth-gated app shell"
+
+backend:
+  - task: "Emergent Google auth exchange + /auth/me + /auth/logout"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented /api/auth/exchange (calls Emergent session-data), /api/auth/me (Bearer), /api/auth/logout. Stores users and user_sessions in MongoDB excluding _id; timezone-aware expiry. Added httpx dependency."
+
+frontend:
+  - task: "Auth-gated Expo Router shell (login + tabs + token storage)"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/*"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added AuthProvider, SecureStore session_token, login screen using WebBrowser.openAuthSessionAsync, and tab shell screens. Note: Expo web bundler log previously showed module resolve error for ../src/state/AuthContext; needs verification after restart."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Emergent Google auth exchange + /auth/me + /auth/logout"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Phase 1 implemented. Please run backend tests per /app/auth_testing.md: seed a session token in MongoDB, then curl /api/auth/me (Bearer) and /api/auth/logout. Also smoke test /api/auth/exchange with a fake session_id should return 401. Frontend not requested for testing yet."
