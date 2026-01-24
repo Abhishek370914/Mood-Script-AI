@@ -27,14 +27,35 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 
-# Define Models
+# =====================
+# Models
+# =====================
+
 class StatusCheck(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 
 class StatusCheckCreate(BaseModel):
     client_name: str
+
+
+class UserPublic(BaseModel):
+    user_id: str
+    email: str
+    name: str
+    picture: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class AuthExchangeRequest(BaseModel):
+    session_id: str
+
+
+class AuthExchangeResponse(BaseModel):
+    user: UserPublic
+    session_token: str
 
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
