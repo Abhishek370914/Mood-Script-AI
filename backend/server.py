@@ -57,10 +57,58 @@ class AuthExchangeResponse(BaseModel):
     user: UserPublic
     session_token: str
 
-# Add your routes to the router instead of directly to app
+# =====================
+# Helpers
+# =====================
+
+async def get_current_user(authorization: Optional[str]) -> UserPublic:
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token: Optional[str] = None
+    if authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Invalid authorization")
+
+    session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    expires_at = session.get("expires_at")
+    if not expires_at:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=401, detail="Session expired")
+
+    user_doc = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    return UserPublic(**user_doc)
+
+
+async def fetch_emergent_session_data(session_id: str) -> dict:
+    url = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
+    async with httpx.AsyncClient(timeout=20.0) as client_http:
+        resp = await client_http.get(url, headers={"X-Session-ID": session_id})
+        resp.raise_for_status()
+        return resp.json()
+
+
+# =====================
+# Routes
+# =====================
+
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "MoodScript API"}
+
 
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
@@ -69,10 +117,77 @@ async def create_status_check(input: StatusCheckCreate):
     _ = await db.status_checks.insert_one(status_obj.dict())
     return status_obj
 
+
 @api_router.get("/status", response_model=List[StatusCheck])
 async def get_status_checks():
     status_checks = await db.status_checks.find().to_list(1000)
     return [StatusCheck(**status_check) for status_check in status_checks]
+
+
+@api_router.post("/auth/exchange", response_model=AuthExchangeResponse)
+async def auth_exchange(payload: AuthExchangeRequest):
+    try:
+        session_data = await fetch_emergent_session_data(payload.session_id)
+    except httpx.HTTPError:
+        raise HTTPException(status_code=401, detail="Invalid session")
+
+    email = session_data.get("email")
+    name = session_data.get("name")
+    picture = session_data.get("picture")
+    session_token = session_data.get("session_token")
+
+    if not email or not session_token or not name:
+        raise HTTPException(status_code=401, detail="Invalid session")
+
+    # Find or create user
+    existing = await db.users.find_one({"email": email}, {"_id": 0})
+    if existing:
+        user_id = existing["user_id"]
+        user_doc = existing
+    else:
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        user_doc = {
+            "user_id": user_id,
+            "email": email,
+            "name": name,
+            "picture": picture,
+            "created_at": datetime.now(timezone.utc),
+        }
+        await db.users.insert_one({**user_doc})
+
+    # Upsert session token with 7-day expiry
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    await db.user_sessions.update_one(
+        {"session_token": session_token},
+        {
+            "$set": {
+                "user_id": user_id,
+                "session_token": session_token,
+                "expires_at": expires_at,
+                "created_at": datetime.now(timezone.utc),
+            }
+        },
+        upsert=True,
+    )
+
+    return AuthExchangeResponse(user=UserPublic(**user_doc), session_token=session_token)
+
+
+@api_router.get("/auth/me", response_model=UserPublic)
+async def auth_me(authorization: Optional[str] = Header(default=None)):
+    return await get_current_user(authorization)
+
+
+@api_router.post("/auth/logout")
+async def auth_logout(authorization: Optional[str] = Header(default=None)):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return {"ok": True}
+
+    token = authorization.split(" ", 1)[1].strip()
+    if token:
+        await db.user_sessions.delete_many({"session_token": token})
+
+    return {"ok": True}
 
 # Include the router in the main app
 app.include_router(api_router)
