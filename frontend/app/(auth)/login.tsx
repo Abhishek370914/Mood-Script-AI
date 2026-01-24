@@ -11,7 +11,7 @@ export default function Login() {
   const insets = useSafeAreaInsets();
   const { loginWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(null);
 
   const subtitle = useMemo(() => {
     return Platform.OS === "web"
